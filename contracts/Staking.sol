@@ -15,10 +15,21 @@ contract Staking is BaseContract, ERC721 {
      */
     constructor() ERC721("Tux Staking", "TUXS") {}
 
+    /**
+     * External contracts.
+     */
     IERC20 private _tux;
     IERC20 private _usdc;
-    uint256 private _tokenIdTracker;
 
+    /**
+     * Global stats.
+     */
+    uint256 public totalTntStaked;
+
+    /**
+     * Token data.
+     */
+    uint256 private _tokenIdTracker;
     mapping(uint256 => address) private _stakeOwner;
     mapping(uint256 => uint256) private _stakeAmount;
     mapping(uint256 => uint256) private _stakeStart;

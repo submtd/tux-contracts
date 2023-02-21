@@ -2,6 +2,8 @@ require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-interface-generator");
 require("dotenv").config();
 
+require("./tasks/deployContract");
+
 const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [];
 
 /** @type import('hardhat/config').HardhatUserConfig */

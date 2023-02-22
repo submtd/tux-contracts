@@ -27,10 +27,10 @@ contract Tux is BaseContract, ERC20
      */
     function setup() external override
     {
-        IUniswapV2Factory _factory_ = IUniswapV2Factory(addressBook.get("factory"));
-        _pair = _factory_.getPair(addressBook.get("usdc"), address(this));
-        _taxHandler = addressBook.get("taxHandler");
-        _deployLiquidity = addressBook.get("deployLiquidity");
+        IUniswapV2Factory _factory_ = IUniswapV2Factory(addressBook.get("Factory"));
+        _pair = _factory_.getPair(addressBook.get("Usdc"), address(this));
+        _taxHandler = addressBook.get("TaxHandler");
+        _deployLiquidity = addressBook.get("DeployLiquidity");
         _taxExempt[address(this)] = true;
         _taxExempt[_taxHandler] = true;
         _taxExempt[_deployLiquidity] = true;

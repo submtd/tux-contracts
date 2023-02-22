@@ -66,8 +66,14 @@ module.exports = {
             },
         ],
     },
-    defaultNetwork: "testnet",
+    defaultNetwork: "hardhat",
     networks: {
+        hardhat: {
+            forking: {
+                url: process.env.TESTNET_RPC_URL || '',
+                blockNumber: 2949669,
+            },
+        },
         testnet: {
             url: process.env.TESTNET_RPC_URL || '',
             accounts: accounts,

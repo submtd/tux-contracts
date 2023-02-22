@@ -6,5 +6,6 @@ task("deployContract", "Deploy a contract")
         const Contract = await hre.ethers.getContractFactory(taskArgs.contract);
         const contract = await Contract.deploy();
         await contract.deployed();
+        console.log(taskArgs.contract + " deployed to:", contract.address);
         return contract;
     });

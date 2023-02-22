@@ -4,9 +4,9 @@ pragma solidity ^0.8.9;
 import "./abstracts/BaseContract.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract FakeUsdc is BaseContract, ERC20
+contract Usdc is BaseContract, ERC20
 {
-    constructor() ERC20("Fake USDC", "FUSDC") {}
+    constructor() ERC20("USDC", "USDC") {}
 
     /**
      * Public mint function.

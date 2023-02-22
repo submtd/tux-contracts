@@ -20,10 +20,10 @@ contract TaxHandler is BaseContract
     /**
      * External contracts.
      */
-    IInvestorVault public investorVault;
-    IUniswapV2Router02 public router;
-    IERC20 public usdc;
-    IERC20 public tux;
+    IInvestorVault private _investorVault;
+    IUniswapV2Router02 private _router;
+    IERC20 private _usdc;
+    IERC20 private _tux;
 
     /**
      * Taxes.
@@ -37,21 +37,22 @@ contract TaxHandler is BaseContract
      * Stats.
      */
     uint256 public totalDistributed;
+    uint256 public lastDistributed;
 
     /**
      * Setup.
      */
     function setup() external override
     {
-        charityReceiver = addressBook.get("charityVault");
-        collateralReceiver = addressBook.get("collateralVault");
-        devReceiver = addressBook.get("devVault");
-        investorReceiver = addressBook.get("investorVault");
-        rewardsReceiver = addressBook.get("staking");
-        investorVault = IInvestorVault(investorReceiver);
-        router = IUniswapV2Router02(addressBook.get("router"));
-        usdc = IERC20(addressBook.get("usdc"));
-        tux = IERC20(addressBook.get("tux"));
+        charityReceiver = addressBook.get("CharityVault");
+        collateralReceiver = addressBook.get("CollateralVault");
+        devReceiver = addressBook.get("DevVault");
+        investorReceiver = addressBook.get("InvestorVault");
+        rewardsReceiver = addressBook.get("Staking");
+        _investorVault = IInvestorVault(investorReceiver);
+        _router = IUniswapV2Router02(addressBook.get("Router"));
+        _usdc = IERC20(addressBook.get("Usdc"));
+        _tux = IERC20(addressBook.get("Tux"));
     }
 
     /**
@@ -59,39 +60,44 @@ contract TaxHandler is BaseContract
      */
     function distribute() external
     {
+        if(block.timestamp - lastDistributed < 1 hours) return;
+        lastDistributed = (block.timestamp / 1 hours) * 1 hours;
         // Sell TUX
+        uint256 _tuxBalance_ = _tux.balanceOf(address(this));
+        if(_tuxBalance_ <= 0) return;
+        _tux.approve(address(_router), _tuxBalance_);
         address[] memory _path_ = new address[](2);
-        _path_[0] = addressBook.get("tux");
-        _path_[1] = addressBook.get("usdc");
-        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            tux.balanceOf(address(this)),
+        _path_[0] = address(_tux);
+        _path_[1] = address(_usdc);
+        _router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            _tuxBalance_,
             0,
             _path_,
             address(this),
             block.timestamp
         );
         // Get USDC balance.
-        uint256 _usdcBalance_ = usdc.balanceOf(address(this));
+        uint256 _usdcBalance_ = _usdc.balanceOf(address(this));
         totalDistributed += _usdcBalance_;
         // Distribute taxes to charity.
         uint256 _charityTax_ = _usdcBalance_ * charityTax / 10000;
-        usdc.transfer(charityReceiver, _charityTax_);
+        _usdc.transfer(charityReceiver, _charityTax_);
         // Distribute taxes to the dev wallet.
         uint256 _devTax_ = _usdcBalance_ * devTax / 10000;
-        usdc.transfer(devReceiver, _devTax_);
+        _usdc.transfer(devReceiver, _devTax_);
         // Distribute taxes to the investor vault if applicable.
         uint256 _investorTax_ = 0;
-        uint256 _investorOutstanding_ = investorVault.totalOutstanding();
+        uint256 _investorOutstanding_ = _investorVault.totalOutstanding();
         if(_investorOutstanding_ > 0)
         {
             _investorTax_ = _usdcBalance_ * investorTax / 10000;
             if(_investorTax_ > _investorOutstanding_) _investorTax_ = _investorOutstanding_;
         }
-        if(_investorTax_ > 0) usdc.transfer(investorReceiver, _investorTax_);
+        if(_investorTax_ > 0) _usdc.transfer(investorReceiver, _investorTax_);
         // Transfer remaining to rewards and collateral.
         uint256 _remainingBalance_ = _usdcBalance_ - _charityTax_ - _devTax_ - _investorTax_;
         uint256 _collateralTax_ = _remainingBalance_ / 2;
-        usdc.transfer(collateralReceiver, _collateralTax_);
-        usdc.transfer(rewardsReceiver, _remainingBalance_ - _collateralTax_);
+        _usdc.transfer(collateralReceiver, _collateralTax_);
+        _usdc.transfer(rewardsReceiver, _remainingBalance_ - _collateralTax_);
     }
 }

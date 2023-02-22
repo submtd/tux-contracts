@@ -41,7 +41,7 @@ contract InvestorVault is BaseContract
      */
     function setup() external override
     {
-        usdc = IERC20(addressBook.get("usdc"));
-        tux = IERC20(addressBook.get("tux"));
+        usdc = IERC20(addressBook.get("Usdc"));
+        tux = IERC20(addressBook.get("Tux"));
     }
 }

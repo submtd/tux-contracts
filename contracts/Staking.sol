@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "./abstracts/BaseContract.sol";
+import "./interfaces/ITaxHandler.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -31,6 +32,7 @@ contract Staking is BaseContract, ERC721 {
     IERC20 private _tux;
     IERC20 private _usdc;
     IUniswapV2Router02 private _router;
+    ITaxHandler private _taxHandler;
 
     /**
      * Global stats.
@@ -62,6 +64,7 @@ contract Staking is BaseContract, ERC721 {
         _usdc = IERC20(addressBook.get("Usdc"));
         _tux = IERC20(addressBook.get("Tux"));
         _router = IUniswapV2Router02(addressBook.get("Router"));
+        _taxHandler = ITaxHandler(addressBook.get("TaxHandler"));
     }
 
     /**
@@ -299,7 +302,9 @@ contract Staking is BaseContract, ERC721 {
     {
         if(block.timestamp - lastUpdate < 1 hours) return;
         lastUpdate = (block.timestamp / 1 hours) * 1 hours;
+        _taxHandler.distribute();
         uint256 _newRewards_ = _tux.balanceOf(address(this)) - totalWcStaked;
+        if(_newRewards_ <= 0) return;
         totalDividends += _newRewards_;
         _dividendsPerShare += (_newRewards_ * 1e18) / totalWcStaked;
         address[] memory _path_ = new address[](2);

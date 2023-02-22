@@ -2,15 +2,14 @@ const hre = require("hardhat");
 
 const contracts = {
     AddressBook: {},
-    CharityVault: {},
+    //CharityVault: {},
     CollateralVault: {},
     DeployLiquidity: {},
-    DevVault: {},
-    InvestorVault: {},
+    //DevVault: {},
+    //InvestorVault: {},
     Staking: {},
     TaxHandler: {},
     Tux: {},
-    Usdc: {},
 };
 
 async function main() {
@@ -23,6 +22,10 @@ async function main() {
     }
     // Set global addresses.
     console.log("Setting global addresses...");
+    await runContractMethod(contracts.AddressBook.contract, "set", "CharityVault", "0x37F16C99197A9702B2047c985C231fb74fad47dA");
+    await runContractMethod(contracts.AddressBook.contract, "set", "DevVault", "0x37F16C99197A9702B2047c985C231fb74fad47dA");
+    await runContractMethod(contracts.AddressBook.contract, "set", "InvestorVault", "0x37F16C99197A9702B2047c985C231fb74fad47dA");
+    await runContractMethod(contracts.AddressBook.contract, "set", "Usdc", "0x49ED7056c5bC96c0f48D3161B4f6b8B5D380E567");
     await runContractMethod(contracts.AddressBook.contract, "set", "Router", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
     await runContractMethod(contracts.AddressBook.contract, "set", "Factory", "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f");
     // Set addressbook entries.
@@ -31,20 +34,22 @@ async function main() {
         await runContractMethod(contracts.AddressBook.contract, "set", key, contracts[key].contract.address);
         await runContractMethod(contracts[key].contract, "setAddressBook", contracts.AddressBook.contract.address);
     }
-    // Setup all contracts
-    for (const key of keys) {
-        console.log("Setting up " + key + "...");
-        await runContractMethod(contracts[key].contract, "setup");
-    }
     // Mint USDC
     console.log("Minting USDC...");
-    await runContractMethod(contracts.Usdc.contract, "mintTo", contracts.DeployLiquidity.contract.address, "250000000000000000000000000");
+    const Usdc = await hre.ethers.getContractFactory("Usdc");
+    const usdc = Usdc.attach("0x49ED7056c5bC96c0f48D3161B4f6b8B5D380E567");
+    await runContractMethod(usdc, "mintTo", contracts.DeployLiquidity.contract.address, "250000000000000000000000000");
     // Mint TUX
     console.log("Minting TUX...");
     await runContractMethod(contracts.Tux.contract, "mint", contracts.DeployLiquidity.contract.address, "2500000000000000000000000000");
     // Deploy liquidity
     console.log("Deploying liquidity...");
     await runContractMethod(contracts.DeployLiquidity.contract, "deploy");
+    // Setup all contracts
+    for (const key of keys) {
+        console.log("Setting up " + key + "...");
+        await runContractMethod(contracts[key].contract, "setup");
+    }
 }
 
 async function runContractMethod(contract, method, ...args) {

@@ -71,19 +71,22 @@ module.exports = {
         hardhat: {
             forking: {
                 url: process.env.TESTNET_RPC_URL || '',
-                blockNumber: 2949669,
+                blockNumber: 8537378,
             },
+            gasMultiplier: .5,
         },
         testnet: {
             url: process.env.TESTNET_RPC_URL || '',
             accounts: accounts,
-            gasMultiplier: 3,
+            gasMultiplier: 1,
+            gasPrice: 30000000000,
+            //gasMultiplier: 3,
             timeout: 600000,
         },
         mainnet: {
             url: process.env.MAINNET_RPC_URL || '',
             accounts: accounts,
-            gasMultiplier: 3,
+            //gasMultiplier: 3,
             timeout: 600000,
         },
     },

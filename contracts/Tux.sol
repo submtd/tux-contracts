@@ -12,15 +12,14 @@ contract Tux is BaseContract, ERC20
     /**
      * External contracts.
      */
-    address private _pair;
-    address private _taxHandler;
-    address private _deployLiquidity;
+    address public _pair;
+    address public _taxHandler;
+    address public _deployLiquidity;
 
     /**
      * Properties.
      */
-    uint256 tax = 500; // 5%
-    mapping(address => bool) private _taxExempt;
+    uint256 public tax = 500; // 5%
 
     /**
      * Setup.
@@ -31,9 +30,6 @@ contract Tux is BaseContract, ERC20
         _pair = _factory_.getPair(addressBook.get("Usdc"), address(this));
         _taxHandler = addressBook.get("TaxHandler");
         _deployLiquidity = addressBook.get("DeployLiquidity");
-        _taxExempt[address(this)] = true;
-        _taxExempt[_taxHandler] = true;
-        _taxExempt[_deployLiquidity] = true;
     }
 
     /**
@@ -60,8 +56,10 @@ contract Tux is BaseContract, ERC20
     ) internal override {
         // If it's not a buy or sell, just transfer.
         if (to_ != _pair && from_ != _pair) return super._transfer(from_, to_, amount_);
-        // If to or from is tax exempt, just transfer.
-        if (_taxExempt[from_] || _taxExempt[to_]) return super._transfer(from_, to_, amount_);
+        // If it's a transfer to or from TaxHandler, just transfer.
+        if (to_ == _taxHandler || from_ == _taxHandler) return super._transfer(from_, to_, amount_);
+        // If it's a transfer to or from DeployLiquidity, just transfer.
+        if (to_ == _deployLiquidity || from_ == _deployLiquidity) return super._transfer(from_, to_, amount_);
         // Otherwise, tax it.
         uint256 taxAmount_ = amount_ * tax / 10000;
         uint256 sendAmount_ = amount_ - taxAmount_;

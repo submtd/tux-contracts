@@ -4,7 +4,7 @@ task("deployContract", "Deploy a contract")
     .addParam("contract", "The name of the contract to deploy")
     .setAction(async (taskArgs, hre) => {
         const Contract = await hre.ethers.getContractFactory(taskArgs.contract);
-        const contract = await Contract.deploy();
+        const contract = await Contract.deploy({ gasPrice: 60000000000 });
         await contract.deployed();
         console.log(taskArgs.contract + " deployed to:", contract.address);
         return contract;

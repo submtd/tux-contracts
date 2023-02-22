@@ -19,4 +19,10 @@ abstract contract BaseContract is Ownable
     {
         addressBook = IAddressBook(address_);
     }
+
+    /**
+     * Setup.
+     * @dev This runs setup tasks. It's public and should not be destructive.
+     */
+    function setup() external virtual {}
 }

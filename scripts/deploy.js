@@ -1,73 +1,59 @@
 const hre = require("hardhat");
-let tx;
+
+const contracts = {
+    AddressBook: {},
+    CharityVault: {},
+    CollateralVault: {},
+    DeployLiquidity: {},
+    DevVault: {},
+    InvestorVault: {},
+    Staking: {},
+    TaxHandler: {},
+    Tux: {},
+    Usdc: {},
+};
 
 async function main() {
-    // Deploy AddressBook.
-    const AddressBook = await hre.ethers.getContractFactory("AddressBook");
-    const addressbook = await AddressBook.deploy();
-    await addressbook.deployed();
-    tx = await addressbook.set("router", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
+    await hre.run("compile");
+    const keys = Object.keys(contracts);
+    // Deploy contracts.
+    for (const key of keys) {
+        console.log("Deploying " + key + "...");
+        contracts[key].contract = await hre.run("deployContract", { contract: key });
+    }
+    // Set global addresses.
+    console.log("Setting global addresses...");
+    await runContractMethod(contracts.AddressBook.contract, "set", "Router", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
+    await runContractMethod(contracts.AddressBook.contract, "set", "Factory", "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f");
+    // Set addressbook entries.
+    for (const key of keys) {
+        console.log("Setting " + key + " in AddressBook...");
+        await runContractMethod(contracts.AddressBook.contract, "set", key, contracts[key].contract.address);
+        await runContractMethod(contracts[key].contract, "setAddressBook", contracts.AddressBook.contract.address);
+    }
+    // Setup all contracts
+    for (const key of keys) {
+        console.log("Setting up " + key + "...");
+        await runContractMethod(contracts[key].contract, "setup");
+    }
+    // Mint USDC
+    console.log("Minting USDC...");
+    await runContractMethod(contracts.Usdc.contract, "mintTo", contracts.DeployLiquidity.contract.address, "250000000000000000000000000");
+    // Mint TUX
+    console.log("Minting TUX...");
+    await runContractMethod(contracts.Tux.contract, "mint", contracts.DeployLiquidity.contract.address, "2500000000000000000000000000");
+    // Deploy liquidity
+    console.log("Deploying liquidity...");
+    await runContractMethod(contracts.DeployLiquidity.contract, "deploy");
+}
+
+async function runContractMethod(contract, method, ...args) {
+    const tx = await contract[method](...args);
     await tx.wait();
-    console.log("ADDRESS_BOOK=" + addressbook.address);
-    // Deploy DeployLiquidity.
-    const DeployLiquidity = await hre.ethers.getContractFactory("DeployLiquidity");
-    const deployliquidity = await DeployLiquidity.deploy();
-    await deployliquidity.deployed();
-    tx = await deployliquidity.setAddressBook(addressbook.address);
-    await tx.wait();
-    tx = await addressbook.set("deployLiquidity", deployliquidity.address);
-    await tx.wait();
-    console.log("DEPLOY_LIQUIDITY=" + deployliquidity.address);
-    // Deploy collateral vault.
-    const CollateralVault = await hre.ethers.getContractFactory("CollateralVault");
-    const collateralvault = await CollateralVault.deploy();
-    await collateralvault.deployed();
-    tx = await collateralvault.setAddressBook(addressbook.address);
-    await tx.wait();
-    tx = await addressbook.set("collateralVault", collateralvault.address);
-    await tx.wait();
-    console.log("COLLATERAL_VAULT=" + collateralvault.address);
-    tx = await addressbook.set("collateralVault", collateralvault.address);
-    await tx.wait();
-    // Deploy fake USDC.
-    const USDC = await hre.ethers.getContractFactory("FakeUsdc");
-    const usdc = await USDC.deploy();
-    await usdc.deployed();
-    tx = await usdc.setAddressBook(addressbook.address);
-    await tx.wait();
-    tx = await addressbook.set("usdc", usdc.address);
-    await tx.wait();
-    // mint 250m to deployliquidity.
-    tx = await usdc.mint(deployliquidity.address, "250000000000000000000000000");
-    await tx.wait();
-    // mint 1000 to sender.
-    tx = await usdc.mint(await hre.ethers.provider.getSigner().getAddress(), "1000000000000000000000");
-    console.log("USDC=" + usdc.address);
-    // Deploy TUX.
-    const Tux = await hre.ethers.getContractFactory("Tux");
-    const tux = await Tux.deploy();
-    await tux.deployed();
-    tx = await tux.setAddressBook(addressbook.address);
-    await tx.wait();
-    tx = await addressbook.set("tux", tux.address);
-    await tx.wait();
-    // mint 2.5b to deployliquidity.
-    tx = await tux.mint(deployliquidity.address, "2500000000000000000000000000");
-    await tx.wait();
-    console.log("TUX=" + tux.address);
-    // Deploy staking.
-    const Staking = await hre.ethers.getContractFactory("Staking");
-    const staking = await Staking.deploy();
-    await staking.deployed();
-    tx = await staking.setAddressBook(addressbook.address);
-    await tx.wait();
-    tx = await addressbook.set("staking", staking.address);
-    await tx.wait();
-    console.log("STAKING=" + staking.address);
-    // Deploy liquidity.
-    tx = await deployliquidity.deploy();
-    await tx.wait();
-    console.log("Liquidity deployed!");
+}
+
+async function callContractMethod(contract, method, ...args) {
+    return await contract[method](...args);
 }
 
 main().catch((error) => {

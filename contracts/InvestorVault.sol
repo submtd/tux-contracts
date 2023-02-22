@@ -24,6 +24,15 @@ contract InvestorVault is BaseContract
      */
     function totalRepaid() public view returns (uint256)
     {
+        return _totalRepaid();
+    }
+
+    /**
+     * Total repaid internal.
+     * @return uint256 Total repaid.
+     */
+    function _totalRepaid() internal view returns (uint256)
+    {
         return usdc.balanceOf(address(this)) + totalWithdrawn;
     }
 
@@ -33,7 +42,7 @@ contract InvestorVault is BaseContract
      */
     function totalOutstanding() external view returns (uint256)
     {
-        return totalInvested - totalRepaid();
+        return totalInvested - _totalRepaid();
     }
 
     /**

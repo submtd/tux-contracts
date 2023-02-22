@@ -65,12 +65,23 @@ contract Staking is BaseContract, ERC721 {
     }
 
     /**
-     * Token of owner by index.
+     * Token of owner by index
      * @param owner_ Owner address.
      * @param index_ Index.
      * @return uint256 Token ID.
      */
-    function tokenOfOwnerByIndex(address owner_, uint256 index_) public view returns (uint256)
+    function tokenOfOwnerByIndex(address owner_, uint256 index_) external view returns (uint256)
+    {
+        return _tokenOfOwnerByIndex(owner_, index_);
+    }
+
+    /**
+     * Token of owner by index internal
+     * @param owner_ Owner address.
+     * @param index_ Index.
+     * @return uint256 Token ID.
+     */
+    function _tokenOfOwnerByIndex(address owner_, uint256 index_) internal view returns (uint256)
     {
         if(balanceOf(owner_) <= index_) revert STAKING_indexOutOfBounds();
         for(uint256 i = 1; i <= _tokenIdTracker; i++) {
@@ -133,6 +144,17 @@ contract Staking is BaseContract, ERC721 {
      */
     function tokenType(uint256 tokenId_) public view returns (uint256)
     {
+        return _tokenType(tokenId_);
+    }
+
+    /**
+     * Token type internal.
+     * @param tokenId_ Token ID.
+     * @return uint256 Token type.
+     * @dev 1 = White Carpet, 2 = Red Carpet, 3 = Dead.
+     */
+    function _tokenType(uint256 tokenId_) internal view returns (uint256)
+    {
         return 1;
     }
 
@@ -142,6 +164,16 @@ contract Staking is BaseContract, ERC721 {
      * @return string Token image.
      */
     function tokenImage(uint256 tokenId_) public view returns (string memory)
+    {
+        return _tokenImage(tokenId_);
+    }
+
+    /**
+     * Token image internal.
+     * @param tokenId_ Token ID.
+     * @return string Token image.
+     */
+    function _tokenImage(uint256 tokenId_) internal view returns (string memory)
     {
         return 'https://picsum.photos/600';
     }
@@ -153,6 +185,16 @@ contract Staking is BaseContract, ERC721 {
      */
     function tokenValue(uint256 tokenId_) public view returns (uint256)
     {
+        return _tokenValue(tokenId_);
+    }
+
+    /**
+     * Token value internal.
+     * @param tokenId_ Token ID.
+     * @return uint256 Token value.
+     */
+    function _tokenValue(uint256 tokenId_) internal view returns (uint256)
+    {
         return _stakeAmount[tokenId_];
     }
 
@@ -162,7 +204,7 @@ contract Staking is BaseContract, ERC721 {
      */
     function stake(uint256 amount_) external
     {
-        updateRewards();
+        _updateRewards();
         // Transfer tokens in.
         if(!_tux.transferFrom(msg.sender, address(this), amount_)) revert STAKING_transferFailed();
         totalWcStaked += amount_;
@@ -181,11 +223,11 @@ contract Staking is BaseContract, ERC721 {
      */
     function compound(uint256 tokenId_) external
     {
-        updateRewards();
+        _updateRewards();
         if(tokenId_ <= 0 || tokenId_ > _tokenIdTracker) revert STAKING_invalidTokenId();
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
         if(tokenType(tokenId_) != 1) revert STAKING_invalidTokenId();
-        uint256 _availableDividends_ = availableDividends(tokenId_);
+        uint256 _availableDividends_ = _availableDividends(tokenId_);
         if(_availableDividends_ <= 0) revert STAKING_noDividends();
         _dividendDebt[tokenId_] = (_stakeAmount[tokenId_] * _dividendsPerShare) / 1e18;
         totalWcStaked += _availableDividends_;
@@ -199,11 +241,11 @@ contract Staking is BaseContract, ERC721 {
      */
     function claim(uint256 tokenId_) external
     {
-        updateRewards();
+        _updateRewards();
         if(tokenId_ <= 0 || tokenId_ > _tokenIdTracker) revert STAKING_invalidTokenId();
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
         if(tokenType(tokenId_) != 1) revert STAKING_invalidTokenId();
-        uint256 _availableDividends_ = availableDividends(tokenId_);
+        uint256 _availableDividends_ = _availableDividends(tokenId_);
         if(_availableDividends_ <= 0) revert STAKING_noDividends();
         _dividendDebt[tokenId_] = (_stakeAmount[tokenId_] * _dividendsPerShare) / 1e18;
         _dividendsClaimed[tokenId_] += _availableDividends_;
@@ -216,7 +258,7 @@ contract Staking is BaseContract, ERC721 {
      */
     function unstake(uint256 tokenId_) external
     {
-        updateRewards();
+        _updateRewards();
         if(tokenId_ <= 0 || tokenId_ > _tokenIdTracker) revert STAKING_invalidTokenId();
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
         if(tokenType(tokenId_) != 1) revert STAKING_invalidTokenId();
@@ -237,7 +279,7 @@ contract Staking is BaseContract, ERC721 {
         uint256 _balance_ = balanceOf(owner_);
         uint256 _stakedAmount_ = 0;
         for(uint256 i = 0; i < _balance_; i++) {
-            _stakedAmount_ += _stakeAmount[tokenOfOwnerByIndex(owner_, i)];
+            _stakedAmount_ += _stakeAmount[_tokenOfOwnerByIndex(owner_, i)];
         }
         return _stakedAmount_;
     }
@@ -246,6 +288,14 @@ contract Staking is BaseContract, ERC721 {
      * Update rewards.
      */
     function updateRewards() public
+    {
+        return _updateRewards();
+    }
+
+    /**
+     * Update rewards internal.
+     */
+    function _updateRewards() internal
     {
         if(block.timestamp - lastUpdate < 1 hours) return;
         lastUpdate = (block.timestamp / 1 hours) * 1 hours;
@@ -264,6 +314,16 @@ contract Staking is BaseContract, ERC721 {
      * @return uint256 Available dividends.
      */
     function availableDividends(uint256 tokenId_) public returns (uint256)
+    {
+        return _availableDividends(tokenId_);
+    }
+
+    /**
+     * Available dividends internal.
+     * @param tokenId_ Token ID.
+     * @return uint256 Available dividends.
+     */
+    function _availableDividends(uint256 tokenId_) internal returns (uint256)
     {
         if(tokenType(tokenId_) != 1) return 0;
         if(_stakeAmount[tokenId_] == 0) return 0;

@@ -15,6 +15,7 @@ contract Tux is BaseContract, ERC20
     address private _pair;
     address private _taxHandler;
     address private _deployLiquidity;
+    address private _staking;
 
     /**
      * Properties.
@@ -31,6 +32,7 @@ contract Tux is BaseContract, ERC20
         _pair = _factory_.getPair(addressBook.get("Usdc"), address(this));
         _taxHandler = addressBook.get("TaxHandler");
         _deployLiquidity = addressBook.get("DeployLiquidity");
+        _staking = addressBook.get("Staking");
         _taxExempt[address(this)] = true;
         _taxExempt[_taxHandler] = true;
         _taxExempt[_deployLiquidity] = true;
@@ -67,5 +69,23 @@ contract Tux is BaseContract, ERC20
         uint256 sendAmount_ = amount_ - taxAmount_;
         super._transfer(from_, _taxHandler, taxAmount_);
         super._transfer(from_, to_, sendAmount_);
+    }
+
+    /**
+     * Transfer from.
+     * @param from_ Address to transfer from.
+     * @param to_ Address to transfer to.
+     * @param amount_ Amount to transfer.
+     * @return bool True if successful.
+     * @dev Allow staking contract to transfer from.
+     */
+    function transferFrom(
+        address from_,
+        address to_,
+        uint256 amount_
+    ) public override returns (bool) {
+        if(msg.sender != _staking) return super.transferFrom(from_, to_, amount_);
+        super._transfer(from_, to_, amount_);
+        return true;
     }
 }

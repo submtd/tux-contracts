@@ -13,8 +13,16 @@ contract Usdc is BaseContract, ERC20
      * @param receiver_ Address to mint to.
      * @param amount_ Amount to mint.
      */
-    function mint(address receiver_, uint256 amount_) external
+    function mintTo(address receiver_, uint256 amount_) external
     {
         _mint(receiver_, amount_);
+    }
+
+    /**
+     * Mint without parameters.
+     */
+    function mint() external
+    {
+        _mint(msg.sender, 1000e18);
     }
 }

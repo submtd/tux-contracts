@@ -71,7 +71,7 @@ module.exports = {
         hardhat: {
             forking: {
                 url: process.env.TESTNET_RPC_URL || '',
-                blockNumber: 8537378,
+                blockNumber: 3096771,
             },
             gasMultiplier: .5,
         },

@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 import "./abstracts/BaseContract.sol";
 // Interfaces.
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 error COLLATERALVAULT_notSetup();
 error COLLATERALVAULT_unauthorized();
@@ -14,7 +14,7 @@ contract CollateralVault is BaseContract
      * External contracts.
      */
     address private _staking;
-    IERC20 private _usdc;
+    IERC20Metadata private _usdc;
 
     /**
      * Setup.
@@ -22,7 +22,7 @@ contract CollateralVault is BaseContract
     function setup() external override
     {
         _staking = addressBook.get("Staking");
-        _usdc = IERC20(addressBook.get("Usdc"));
+        _usdc = IERC20Metadata(addressBook.get("Usdc"));
     }
 
     /**

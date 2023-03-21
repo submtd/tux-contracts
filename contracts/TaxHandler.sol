@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 import "./abstracts/BaseContract.sol";
 import "./interfaces/IInvestorVault.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 contract TaxHandler is BaseContract
@@ -22,8 +22,8 @@ contract TaxHandler is BaseContract
      */
     IInvestorVault private _investorVault;
     IUniswapV2Router02 private _router;
-    IERC20 private _usdc;
-    IERC20 private _tux;
+    IERC20Metadata private _usdc;
+    IERC20Metadata private _tux;
 
     /**
      * Taxes.
@@ -51,8 +51,8 @@ contract TaxHandler is BaseContract
         rewardsReceiver = addressBook.get("Staking");
         _investorVault = IInvestorVault(investorReceiver);
         _router = IUniswapV2Router02(addressBook.get("Router"));
-        _usdc = IERC20(addressBook.get("Usdc"));
-        _tux = IERC20(addressBook.get("Tux"));
+        _usdc = IERC20Metadata(addressBook.get("Usdc"));
+        _tux = IERC20Metadata(addressBook.get("Tux"));
     }
 
     /**

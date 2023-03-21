@@ -23,6 +23,14 @@ contract Usdc is BaseContract, ERC20
      */
     function mint() external
     {
-        _mint(msg.sender, 1000e18);
+        _mint(msg.sender, 1000 * (10 ** decimals()));
+    }
+
+    /**
+     * Decimals override.
+     * @return uint8 Decimals.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
     }
 }

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // Interfaces.
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 error INVESTORVAULT_invalidTokenId();
 error INVESTORVAULT_invalidAmount();
@@ -23,8 +23,12 @@ contract InvestorVault is BaseContract, ERC721
     /**
      * External contracts.
      */
-    IERC20 private usdc;
-    IERC20 private tux;
+    IERC20Metadata private _usdc;
+
+    /**
+     * Properties.
+     */
+    uint8 private _usdcDecimals;
 
     /**
      * Stats.
@@ -54,7 +58,7 @@ contract InvestorVault is BaseContract, ERC721
      */
     function _totalRepaid() internal view returns (uint256)
     {
-        return usdc.balanceOf(address(this)) + totalWithdrawn;
+        return _usdc.balanceOf(address(this)) + totalWithdrawn;
     }
 
     /**
@@ -71,8 +75,8 @@ contract InvestorVault is BaseContract, ERC721
      */
     function setup() external override
     {
-        usdc = IERC20(addressBook.get("Usdc"));
-        tux = IERC20(addressBook.get("Tux"));
+        _usdc = IERC20Metadata(addressBook.get("Usdc"));
+        _usdcDecimals = _usdc.decimals();
     }
 
     /**
@@ -104,7 +108,7 @@ contract InvestorVault is BaseContract, ERC721
      */
     function _availablePerShare() internal view returns (uint256)
     {
-        return ((usdc.balanceOf(address(this)) + totalWithdrawn) * 1e18) / totalInvested;
+        return ((_usdc.balanceOf(address(this)) + totalWithdrawn) * (10 ** _usdcDecimals)) / totalInvested;
     }
 
     /**
@@ -124,7 +128,7 @@ contract InvestorVault is BaseContract, ERC721
      */
     function _available(uint256 tokenId_) internal view returns (uint256)
     {
-        return (invested[tokenId_] * _availablePerShare()) / 1e18 - withdrawn[tokenId_];
+        return (invested[tokenId_] * _availablePerShare()) / (10 ** _usdcDecimals) - withdrawn[tokenId_];
     }
 
     /**
@@ -137,7 +141,7 @@ contract InvestorVault is BaseContract, ERC721
         if(_available_ <= 0) revert INVESTORVAULT_invalidAmount();
         withdrawn[tokenId_] += _available_;
         totalWithdrawn += _available_;
-        usdc.transfer(msg.sender, _available_);
+        _usdc.transfer(msg.sender, _available_);
     }
 
     /**

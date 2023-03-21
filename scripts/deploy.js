@@ -33,7 +33,7 @@ async function main() {
     }
     // Mint USDC
     console.log("Minting USDC...");
-    await runContractMethod(contracts.Usdc.contract, "mintTo", contracts.DeployLiquidity.contract.address, "250000000000000000000000000");
+    await runContractMethod(contracts.Usdc.contract, "mintTo", contracts.DeployLiquidity.contract.address, "250000000000000");
     // Mint TUX
     console.log("Minting TUX...");
     await runContractMethod(contracts.Tux.contract, "mint", contracts.DeployLiquidity.contract.address, "2500000000000000000000000000");

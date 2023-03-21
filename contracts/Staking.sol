@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // Interfaces.
 import "./interfaces/ICollateralVault.sol";
 import "./interfaces/ITaxHandler.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 error STAKING_indexOutOfBounds();
@@ -30,8 +30,8 @@ contract Staking is BaseContract, ERC721 {
      * External contracts.
      */
     ICollateralVault private _collateralVault;
-    IERC20 private _tux;
-    IERC20 private _usdc;
+    IERC20Metadata private _tux;
+    IERC20Metadata private _usdc;
     IUniswapV2Router02 private _router;
     ITaxHandler private _taxHandler;
 
@@ -40,7 +40,9 @@ contract Staking is BaseContract, ERC721 {
      */
     uint256 private _burnPercent = 75;
     uint256 private _transferTax = 5;
-    uint256 public maxRcReward = 10000e18;
+    uint256 public maxRcReward;
+    uint8 private _usdcDecimals;
+    uint8 private _tuxDecimals;
 
     /**
      * Token data.
@@ -55,7 +57,6 @@ contract Staking is BaseContract, ERC721 {
     mapping(uint256 => uint256) private _dividendsClaimed;
     mapping(uint256 => uint256) private _dividendDebt;
     mapping(uint256 => uint256) private _tuxRefundAvailable;
-    mapping(uint256 => uint256) private _rcValue;
     mapping(uint256 => uint256) private _rcRewardAvailable;
 
     /**
@@ -79,10 +80,13 @@ contract Staking is BaseContract, ERC721 {
     function setup() external override
     {
         _collateralVault = ICollateralVault(addressBook.get("CollateralVault"));
-        _usdc = IERC20(addressBook.get("Usdc"));
-        _tux = IERC20(addressBook.get("Tux"));
+        _usdc = IERC20Metadata(addressBook.get("Usdc"));
+        _tux = IERC20Metadata(addressBook.get("Tux"));
         _router = IUniswapV2Router02(addressBook.get("Router"));
         _taxHandler = ITaxHandler(addressBook.get("TaxHandler"));
+        _usdcDecimals = _usdc.decimals();
+        _tuxDecimals = _tux.decimals();
+        maxRcReward = 10000 * (10 ** _usdcDecimals);
     }
 
     /**
@@ -132,19 +136,21 @@ contract Staking is BaseContract, ERC721 {
                 '{"trait_type": "id", "value": "', tokenId_.toString(), '"},',
                 '{"trait_type": "stakeType", "value": "', _stakeType[tokenId_].toString(), '"},',
                 '{"trait_type": "stakeTypeString", "value": "', _tokenTypeString(tokenId_), '"},',
-                '{"trait_type": "stakeAmount", "value": "', _stakeAmount[tokenId_].toString(), '"},'
+                '{"trait_type": "stakeAmount", "value": "', _stakeAmount[tokenId_].toString(), '"},',
+                '{"trait_type": "stakeAge", "value": "', _tokenAge(tokenId_).toString(), '"},'
             ),
             abi.encodePacked(
                 '{"trait_type": "stakeStart", "value": "', _stakeStart[tokenId_].toString(), '"},',
                 '{"trait_type": "stakePrice", "value": "', _stakePrice[tokenId_].toString(), '"},',
                 '{"trait_type": "startingStakeAmount", "value": "', _startingStakeAmount[tokenId_].toString(), '"},',
+                '{"trait_type": "availableDividends", "value": "', _availableDividends(tokenId_).toString(), '"},'
                 '{"trait_type": "dividendsCompounded", "value": "', _dividendsCompounded[tokenId_].toString(), '"},'
             ),
             abi.encodePacked(
                 '{"trait_type": "dividendsClaimed", "value": "', _dividendsClaimed[tokenId_].toString(), '"},',
                 '{"trait_type": "dividendDebt", "value": "', _dividendDebt[tokenId_].toString(), '"},',
                 '{"trait_type": "tuxRefundAvailable", "value": "', _tuxRefundAvailable[tokenId_].toString(), '"},',
-                '{"trait_type": "rcValue", "value": "', _rcValue[tokenId_].toString(), '"},'
+                '{"trait_type": "rcValue", "value": "', _tokenUsdcValue(tokenId_).toString(), '"},'
                 '{"trait_type": "rcRewardAvailable", "value": "', _rcRewardAvailable[tokenId_].toString(), '"}'
             ),
             ']',
@@ -200,7 +206,7 @@ contract Staking is BaseContract, ERC721 {
     function _tokenUsdcValue(uint256 tokenId_) internal view returns (uint256)
     {
         if(_stakeType[tokenId_] == 3) return 0;
-        uint256 _value_ = _stakeAmount[tokenId_] * _stakePrice[tokenId_] / 1e18;
+        uint256 _value_ = _stakeAmount[tokenId_] * _stakePrice[tokenId_] / (10 ** _tuxDecimals);
         if(_value_ > maxRcReward) return maxRcReward;
         return _value_;
     }
@@ -233,7 +239,7 @@ contract Staking is BaseContract, ERC721 {
         _startingStakeAmount[_tokenIdTracker] = amount_;
         _stakeStart[_tokenIdTracker] = block.timestamp;
         _stakePrice[_tokenIdTracker] = _currentTuxPrice();
-        _dividendDebt[_tokenIdTracker] = (amount_ * _dividendsPerShare) / 1e18;
+        _dividendDebt[_tokenIdTracker] = (amount_ * _dividendsPerShare) / (10 ** _tuxDecimals);
         _mint(msg.sender, _tokenIdTracker);
     }
 
@@ -249,10 +255,10 @@ contract Staking is BaseContract, ERC721 {
         if(_stakeType[tokenId_] != 1) revert STAKING_invalidTokenId();
         uint256 _availableDividends_ = _availableDividends(tokenId_);
         if(_availableDividends_ <= 0) revert STAKING_noDividends();
-        _dividendDebt[tokenId_] = (_stakeAmount[tokenId_] * _dividendsPerShare) / 1e18;
         totalWcStaked += _availableDividends_;
         _dividendsCompounded[tokenId_] += _availableDividends_;
         _stakeAmount[tokenId_] += _availableDividends_;
+        _dividendDebt[tokenId_] = (_stakeAmount[tokenId_] * _dividendsPerShare) / (10 ** _tuxDecimals);
     }
 
     /**
@@ -317,7 +323,6 @@ contract Staking is BaseContract, ERC721 {
         delete _dividendsClaimed[tokenId_];
         delete _dividendDebt[tokenId_];
         delete _tuxRefundAvailable[tokenId_];
-        delete _rcValue[tokenId_];
         delete _rcRewardAvailable[tokenId_];
         _transfer(ownerOf(tokenId_), deadAddress, tokenId_);
     }
@@ -354,7 +359,7 @@ contract Staking is BaseContract, ERC721 {
         if(_newRewards_ <= 0) return;
         totalDividends += _newRewards_;
         // Calculate dividends per share.
-        _dividendsPerShare += (_newRewards_ * 1e18) / totalWcStaked;
+        _dividendsPerShare += (_newRewards_ * (10 ** _tuxDecimals)) / totalWcStaked;
     }
 
     /**
@@ -370,9 +375,13 @@ contract Staking is BaseContract, ERC721 {
         // Loop through RC stakes and reward any that are ready.
         for(uint256 i = lastRcRewarded + 1; i <= lastRcEntered; i ++) {
             if(_stakeType[i] != 2) continue;
-            uint256 _tokenValue_ = _rcValue[i];
+            uint256 _tokenValue_ = _tokenUsdcValue(i);
             // If there is not enough rewards, or the token hasn't reached 365 days yet, return.
-            if(_tokenValue_ > _available_ && _tokenAge(i) < 365 days) return;
+            if(_tokenValue_ > _available_) {
+                if(_tokenAge(i) < 365 days) return;
+                // If the token is 365 days old, withdraw from the collateral vault.
+                _collateralVault.withdraw(_tokenValue_ - _available_);
+            }
             // Update the total rc rewarded.
             rcRewarded += _tokenValue_;
             // Subtrack rewards from available.
@@ -402,12 +411,12 @@ contract Staking is BaseContract, ERC721 {
         // Loop through the next WC stakes and see if they fit in the available collateral.
         for(uint256 i = lastRcEntered + 1; i <= _tokenIdTracker; i ++) {
             if(_stakeType[i] != 1) continue;
-            uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] / 1e18;
+            uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] / (10 ** _usdcDecimals);
             // If value is greater than max RC reward, set value to max RC reward and calculate the TUX refund.
             uint256 _tuxRefund_;
             if(_tokenValue_ > maxRcReward) {
                 _tokenValue_ = maxRcReward;
-                _tuxRefund_ = _stakeAmount[i] - (maxRcReward * 1e18 / _stakePrice[i]);
+                _tuxRefund_ = _stakeAmount[i] - (maxRcReward * (10 ** _usdcDecimals) / _stakePrice[i]);
             }
             if(_tokenValue_ > _available_) break;
             // Subtract value from available.
@@ -416,13 +425,13 @@ contract Staking is BaseContract, ERC721 {
             lastRcEntered = i;
             // Update RC pending.
             rcPending += _tokenValue_;
+            // Update stake start time.
+            _stakeStart[i] = block.timestamp;
             // Burn TUX.
             _tux.transfer(deadAddress, _stakeAmount[i] * _burnPercent / 100);
             // Update stake data.
             totalWcStaked -= _stakeAmount[i];
             _tuxRefunds += _tuxRefund_;
-            _stakeAmount[i] = 0;
-            _rcValue[i] = _tokenValue_;
             _tuxRefundAvailable[i] = _tuxRefund_;
             _stakeType[i] = 2;
         }
@@ -447,7 +456,7 @@ contract Staking is BaseContract, ERC721 {
     {
         if(_stakeType[tokenId_] != 1) return 0;
         if(_stakeAmount[tokenId_] == 0) return 0;
-        return ((_stakeAmount[tokenId_] * _dividendsPerShare) / 1e18) - _dividendDebt[tokenId_];
+        return ((_stakeAmount[tokenId_] * _dividendsPerShare) / (10 ** _tuxDecimals)) - _dividendDebt[tokenId_];
     }
 
     /**
@@ -459,7 +468,7 @@ contract Staking is BaseContract, ERC721 {
         address[] memory _path_ = new address[](2);
         _path_[0] = address(_tux);
         _path_[1] = address(_usdc);
-        return _router.getAmountsOut(1e18, _path_)[1];
+        return _router.getAmountsOut((10 ** _tuxDecimals), _path_)[1];
     }
 
     /**
@@ -474,8 +483,6 @@ contract Staking is BaseContract, ERC721 {
         // Update values.
         uint256 _stakeTax_ = _stakeAmount[tokenId_] * _transferTax / 100;
         _stakeAmount[tokenId_] -= _stakeTax_;
-        uint256 _rcTax_ = _rcValue[tokenId_] * _transferTax / 100;
-        _rcValue[tokenId_] -= _rcTax_;
     }
 
     /**

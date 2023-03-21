@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "./abstracts/BaseContract.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 contract DeployLiquidity is BaseContract
@@ -13,8 +13,8 @@ contract DeployLiquidity is BaseContract
      */
     function deploy() external onlyOwner
     {
-        IERC20 _usdc = IERC20(addressBook.get("Usdc"));
-        IERC20 _tux = IERC20(addressBook.get("Tux"));
+        IERC20Metadata _usdc = IERC20Metadata(addressBook.get("Usdc"));
+        IERC20Metadata _tux = IERC20Metadata(addressBook.get("Tux"));
         IUniswapV2Router02 _router = IUniswapV2Router02(addressBook.get("Router"));
         _usdc.approve(address(_router), _usdc.balanceOf(address(this)));
         _tux.approve(address(_router), _tux.balanceOf(address(this)));

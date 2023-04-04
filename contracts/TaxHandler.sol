@@ -37,7 +37,6 @@ contract TaxHandler is BaseContract
      * Stats.
      */
     uint256 public totalDistributed;
-    uint256 public lastDistributed;
 
     /**
      * Setup.
@@ -60,22 +59,7 @@ contract TaxHandler is BaseContract
      */
     function distribute() external
     {
-        if(block.timestamp - lastDistributed < 1 hours) return;
-        lastDistributed = (block.timestamp / 1 hours) * 1 hours;
-        // Sell TUX
-        uint256 _tuxBalance_ = _tux.balanceOf(address(this));
-        if(_tuxBalance_ <= 0) return;
-        _tux.approve(address(_router), _tuxBalance_);
-        address[] memory _path_ = new address[](2);
-        _path_[0] = address(_tux);
-        _path_[1] = address(_usdc);
-        _router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _tuxBalance_,
-            0,
-            _path_,
-            address(this),
-            block.timestamp
-        );
+        _sellTux();
         // Get USDC balance.
         uint256 _usdcBalance_ = _usdc.balanceOf(address(this));
         totalDistributed += _usdcBalance_;
@@ -99,5 +83,26 @@ contract TaxHandler is BaseContract
         uint256 _collateralTax_ = _remainingBalance_ / 2;
         _usdc.transfer(collateralReceiver, _collateralTax_);
         _usdc.transfer(rewardsReceiver, _remainingBalance_ - _collateralTax_);
+    }
+
+    /**
+     * Sell TUX.
+     */
+    function _sellTux() internal
+    {
+        // Sell TUX
+        uint256 _tuxBalance_ = _tux.balanceOf(address(this));
+        if(_tuxBalance_ <= 0) return;
+        _tux.approve(address(_router), _tuxBalance_);
+        address[] memory _path_ = new address[](2);
+        _path_[0] = address(_tux);
+        _path_[1] = address(_usdc);
+        _router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            _tuxBalance_,
+            0,
+            _path_,
+            address(this),
+            block.timestamp
+        );
     }
 }

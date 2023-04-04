@@ -34,6 +34,7 @@ contract Staking is BaseContract, ERC721 {
     IERC20Metadata private _usdc;
     IUniswapV2Router02 private _router;
     ITaxHandler private _taxHandler;
+    address private _marketplace;
 
     /**
      * Properties.
@@ -43,6 +44,8 @@ contract Staking is BaseContract, ERC721 {
     uint256 public maxRcReward;
     uint8 private _usdcDecimals;
     uint8 private _tuxDecimals;
+    uint256 private _updateInterval = 1 minutes;
+    uint256 private _maxRcAge = 365 days;
 
     /**
      * Token data.
@@ -67,12 +70,15 @@ contract Staking is BaseContract, ERC721 {
     uint256 public totalDividends;
     uint256 private _dividendsPerShare;
     uint256 private _tuxRefunds;
-    uint256 public lastUpdate;
+    uint256 private _lastUpdate;
+    uint256 private _lastUpdated;
     uint256 public rcRewarded;
     uint256 public rcClaimed;
     uint256 public rcPending;
     uint256 public lastRcRewarded;
     uint256 public lastRcEntered;
+    uint256 private _nextToEnter = 1;
+    uint256 private _nextToReward = 1;
 
     /**
      * Setup.
@@ -84,6 +90,7 @@ contract Staking is BaseContract, ERC721 {
         _tux = IERC20Metadata(addressBook.get("Tux"));
         _router = IUniswapV2Router02(addressBook.get("Router"));
         _taxHandler = ITaxHandler(addressBook.get("TaxHandler"));
+        _marketplace = addressBook.get("Marketplace");
         _usdcDecimals = _usdc.decimals();
         _tuxDecimals = _tux.decimals();
         maxRcReward = 10000 * (10 ** _usdcDecimals);
@@ -340,19 +347,26 @@ contract Staking is BaseContract, ERC721 {
      */
     function _updateRewards() internal
     {
-        if(block.timestamp - lastUpdate < 1 hours) return;
-        lastUpdate = (block.timestamp / 1 hours) * 1 hours;
-        _taxHandler.distribute();
-        _updateWcRewards();
-        _updateLastRcRewarded();
-        _updateLastRcEntered();
+        if(_lastUpdated == 0) {
+            _taxHandler.distribute();
+        }
+        if(_lastUpdated == 1) {
+            _updateWcRewards();
+        }
+        if(_lastUpdated == 2) {
+            _addNextWcToRc();
+        }
+        if(_lastUpdated == 3) {
+            _rewardNextRc();
+        }
+        _lastUpdated = (_lastUpdated + 1) % 4;
     }
 
     /**
      * Update WC rewards.
      * @dev This functions distributes TUX tokens to WC stakers.
      */
-    function _updateWcRewards() internal
+    function _updateWcRewards() public
     {
         // New rewards will be the number of extra TUX in the contract.
         uint256 _newRewards_ = _tux.balanceOf(address(this)) - totalWcStaked - _tuxRefunds;
@@ -363,78 +377,82 @@ contract Staking is BaseContract, ERC721 {
     }
 
     /**
-     * Update last RC rewarded.
-     * @dev This function calculates new rewards that are ready to be claimed
-     *      and updates the last RC rewarded.
+     * Reward next RC.
      */
-    function _updateLastRcRewarded() internal
+    function _rewardNextRc() public
     {
+        if(_stakeType[_nextToReward] != 2) {
+            if(_stakeType[_nextToReward] == 3) _nextToReward++;
+            return;
+        }
         // Get USDC balance and calculate what the new rewards are.
         uint256 _usdcBalance_ = _usdc.balanceOf(address(this));
         uint256 _available_ = _usdcBalance_ - (rcRewarded - rcClaimed);
-        // Loop through RC stakes and reward any that are ready.
-        for(uint256 i = lastRcRewarded + 1; i <= lastRcEntered; i ++) {
-            if(_stakeType[i] != 2) continue;
-            uint256 _tokenValue_ = _tokenUsdcValue(i);
-            // If there is not enough rewards, or the token hasn't reached 365 days yet, return.
-            if(_tokenValue_ > _available_) {
-                if(_tokenAge(i) < 365 days) return;
-                // If the token is 365 days old, withdraw from the collateral vault.
-                _collateralVault.withdraw(_tokenValue_ - _available_);
-            }
-            // Update the total rc rewarded.
-            rcRewarded += _tokenValue_;
-            // Subtrack rewards from available.
-            _available_ -= _tokenValue_;
-            // Subtract rewards from the pending amount.
-            rcPending -= _tokenValue_;
-            // Update the last RC rewarded.
-            lastRcRewarded = i;
-            // Update the token data.
-            _rcRewardAvailable[i] = _tokenValue_;
+        uint256 _tokenValue_ = _tokenUsdcValue(_nextToReward);
+        // If there is not enough rewards, or the token hasn't reached 365 days yet, return.
+        if(_tokenValue_ > _available_) {
+            return;
+            //if(_tokenAge(_nextToReward) < 365 days) return;
+            // If the token is 365 days old, withdraw from the collateral vault.
+            //_collateralVault.withdraw(_tokenValue_ - _available_);
         }
+        // Update the total rc rewarded.
+        rcRewarded += _tokenValue_;
+        // Subtrack rewards from available.
+        _available_ -= _tokenValue_;
+        // Subtract rewards from the pending amount.
+        rcPending -= _tokenValue_;
+        // Update the last RC rewarded.
+        lastRcRewarded = _nextToReward;
+        // Update the token data.
+        _rcRewardAvailable[_nextToReward] = _tokenValue_;
+        // Increment next to reward.
+        _nextToReward++;
     }
 
     /**
-     * Update last RC entered.
-     * @dev This function gets the available collateral and converts
-     *      WC stakes into RC stakes until there is not enough collateral.
+     * Add next WC to RC.
      */
-    function _updateLastRcEntered() internal
+    function _addNextWcToRc() public
     {
+        // If next is > than latest token ID, return.
+        if(_nextToEnter > _tokenIdTracker) return;
+        // If next is not WC, return.
+        if(_stakeType[_nextToEnter] != 1) {
+            _nextToEnter++;
+            return;
+        }
         // Get collateral vault balance.
         uint256 _collateralBalance_ = _usdc.balanceOf(address(_collateralVault));
         // If there is not enough collateral, return.
         if(rcPending >= _collateralBalance_) return;
         // Calculate available collateral.
         uint256 _available_ = _collateralBalance_ - rcPending;
-        // Loop through the next WC stakes and see if they fit in the available collateral.
-        for(uint256 i = lastRcEntered + 1; i <= _tokenIdTracker; i ++) {
-            if(_stakeType[i] != 1) continue;
-            uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] / (10 ** _usdcDecimals);
-            // If value is greater than max RC reward, set value to max RC reward and calculate the TUX refund.
-            uint256 _tuxRefund_;
-            if(_tokenValue_ > maxRcReward) {
-                _tokenValue_ = maxRcReward;
-                _tuxRefund_ = _stakeAmount[i] - (maxRcReward * (10 ** _usdcDecimals) / _stakePrice[i]);
-            }
-            if(_tokenValue_ > _available_) break;
-            // Subtract value from available.
-            _available_ -= _tokenValue_;
-            // Update last RC entered.
-            lastRcEntered = i;
-            // Update RC pending.
-            rcPending += _tokenValue_;
-            // Update stake start time.
-            _stakeStart[i] = block.timestamp;
-            // Burn TUX.
-            _tux.transfer(deadAddress, _stakeAmount[i] * _burnPercent / 100);
-            // Update stake data.
-            totalWcStaked -= _stakeAmount[i];
-            _tuxRefunds += _tuxRefund_;
-            _tuxRefundAvailable[i] = _tuxRefund_;
-            _stakeType[i] = 2;
+        // Calculate token value.
+        uint256 _tokenValue_ = _stakeAmount[_nextToEnter] * _stakePrice[_nextToEnter] / (10 ** _usdcDecimals);
+        // If value is greater than max RC reward, set value to max RC reward and calculate the TUX refund.
+        uint256 _tuxRefund_;
+        if(_tokenValue_ > maxRcReward) {
+            _tokenValue_ = maxRcReward;
+            _tuxRefund_ = _stakeAmount[_nextToEnter] - (maxRcReward * (10 ** _usdcDecimals) / _stakePrice[_nextToEnter]);
         }
+        // If token value is greater than available collateral, return.
+        if(_tokenValue_ > _available_) return;
+        // Update last RC entered.
+        lastRcEntered = _nextToEnter;
+        // Update RC pending.
+        rcPending += _tokenValue_;
+        // Update stake start time.
+        _stakeStart[_nextToEnter] = block.timestamp;
+        // Burn TUX.
+        _tux.transfer(deadAddress, _stakeAmount[_nextToEnter] * _burnPercent / 100);
+        // Update stake data.
+        totalWcStaked -= _stakeAmount[_nextToEnter];
+        _tuxRefunds += _tuxRefund_;
+        _tuxRefundAvailable[_nextToEnter] = _tuxRefund_;
+        _stakeType[_nextToEnter] = 2;
+        // Increment next to enter.
+        _nextToEnter++;
     }
 
     /**
@@ -463,6 +481,15 @@ contract Staking is BaseContract, ERC721 {
      * Current TUX price.
      * @return uint256 Price.
      */
+    function currentTuxPrice() external view returns (uint256)
+    {
+        return _currentTuxPrice();
+    }
+
+    /**
+     * Current TUX price internal.
+     * @return uint256 Price.
+     */
     function _currentTuxPrice() internal view returns (uint256)
     {
         address[] memory _path_ = new address[](2);
@@ -480,9 +507,10 @@ contract Staking is BaseContract, ERC721 {
     function _transfer(address from_, address to_, uint256 tokenId_) internal override
     {
         super._transfer(from_, to_, tokenId_);
+        //if(to_ == _marketplace || from_ == _marketplace) return;
         // Update values.
-        uint256 _stakeTax_ = _stakeAmount[tokenId_] * _transferTax / 100;
-        _stakeAmount[tokenId_] -= _stakeTax_;
+        //uint256 _stakeTax_ = _stakeAmount[tokenId_] * _transferTax / 100;
+        //_stakeAmount[tokenId_] -= _stakeTax_;
     }
 
     /**
@@ -516,5 +544,23 @@ contract Staking is BaseContract, ERC721 {
     function setMaxRcReward(uint256 maxRcReward_) public onlyOwner
     {
         maxRcReward = maxRcReward_;
+    }
+
+    /**
+     * Set update interval.
+     * @param updateInterval_ Update interval.
+     */
+    function setUpdateInterval(uint256 updateInterval_) public onlyOwner
+    {
+        _updateInterval = updateInterval_;
+    }
+
+    /**
+     * Set max RC age.
+     * @param maxRcAge_ Max RC age.
+     */
+    function setMaxRcAge(uint256 maxRcAge_) public onlyOwner
+    {
+        _maxRcAge = maxRcAge_;
     }
 }

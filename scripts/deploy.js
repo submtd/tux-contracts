@@ -1,17 +1,6 @@
 const hre = require("hardhat");
 
-const contracts = {
-    AddressBook: {},
-    CharityVault: {},
-    CollateralVault: {},
-    DeployLiquidity: {},
-    DevVault: {},
-    InvestorVault: {},
-    Staking: {},
-    TaxHandler: {},
-    Tux: {},
-    Usdc: {},
-};
+const contracts = require("./contracts");
 
 async function main() {
     await hre.run("compile");

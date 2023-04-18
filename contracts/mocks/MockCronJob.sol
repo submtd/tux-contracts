@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "../interfaces/ICronable.sol";
-
-contract MockCronJob is ICronable {
+contract MockCronJob
+{
     uint256 public callCount;
 
     constructor() {
         callCount = 0;
     }
 
-    function cron() external override {
+    function cron() external {
         callCount += 1;
     }
 }

@@ -15,7 +15,7 @@ describe("Cron", function () {
     await mockCronJob.deployed();
 
     // Add a task as the owner.
-    const transaction = await cron.connect(owner).addTask(mockCronJob.address, 60, 0);
+    const transaction = await cron.connect(owner).addTask(mockCronJob.address, "cron()");
     await transaction.wait();
 
     taskId = 1;
@@ -24,16 +24,6 @@ describe("Cron", function () {
   it("should add a task", async function () {
     const task = await cron.getTask(taskId);
     expect(task.externalContract).to.equal(mockCronJob.address);
-    expect(task.interval).to.equal(60);
-    expect(task.offset).to.equal(0);
-  });
-
-  it("should update a task", async function () {
-    await cron.connect(owner).updateTask(taskId, mockCronJob.address, 120, 30);
-    const updatedTask = await cron.getTask(taskId);
-    expect(updatedTask.externalContract).to.equal(mockCronJob.address);
-    expect(updatedTask.interval).to.equal(120);
-    expect(updatedTask.offset).to.equal(30);
   });
 
   it("should remove a task", async function () {
@@ -49,11 +39,7 @@ describe("Cron", function () {
   });
 
   it("non-owner should not be able to add tasks", async function () {
-    await expect(cron.connect(nonOwner).addTask(mockCronJob.address, 120, 30)).to.be.revertedWith("Ownable: caller is not the owner");
-  });
-
-  it("non-owner should not be able to update tasks", async function () {
-    await expect(cron.connect(nonOwner).updateTask(taskId, mockCronJob.address, 120, 30)).to.be.revertedWith("Ownable: caller is not the owner");
+    await expect(cron.connect(nonOwner).addTask(mockCronJob.address, "cron()")).to.be.revertedWith("Ownable: caller is not the owner");
   });
 
   it("non-owner should not be able to remove tasks", async function () {

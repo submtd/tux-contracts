@@ -26,6 +26,7 @@ async function main() {
     // Mint TUX
     console.log("Minting TUX...");
     await runContractMethod(contracts.Tux.contract, "mint", contracts.DeployLiquidity.contract.address, "2500000000000000000000000000");
+    await runContractMethod(contracts.Tux.contract, "mint", contracts.TaxHandler.contract.address, "1000000000000000000000");
     // Deploy liquidity
     console.log("Deploying liquidity...");
     await runContractMethod(contracts.DeployLiquidity.contract, "deploy");

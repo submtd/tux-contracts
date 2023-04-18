@@ -2,6 +2,7 @@ module.exports = {
     AddressBook: {},
     CharityVault: {},
     CollateralVault: {},
+    Cron: {},
     DeployLiquidity: {},
     DevVault: {},
     InvestorVault: {},

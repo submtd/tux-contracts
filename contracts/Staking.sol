@@ -382,13 +382,14 @@ contract Staking is BaseContract, ERC721 {
         while (i < _tokenIdTracker && _availableCollateral_ > 0) {
             if(_stakeType[i] == 1) {
                 // Calculate token value.
-                uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] * 2 / (10 ** _tuxDecimals);
+                uint256 _tokenValue_ = _tokenUsdcValue(i);
+                //uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] * 2 / (10 ** _tuxDecimals);
                 // If value is greater than max RC reward, set value to max RC reward and calculate the TUX refund.
                 uint256 _tuxRefund_;
-                if(_tokenValue_ > maxRcReward) {
-                    _tokenValue_ = maxRcReward;
-                    _tuxRefund_ = _stakeAmount[i] - (maxRcReward * (10 ** _tuxDecimals) / _stakePrice[i] / 2);
-                }
+                //if(_tokenValue_ > maxRcReward) {
+                    //_tokenValue_ = maxRcReward;
+                    //_tuxRefund_ = _stakeAmount[i] - (maxRcReward * (10 ** _tuxDecimals) / _stakePrice[i] / 2);
+                //}
                 // If there is enough collateral, update variables.
                 if(_tokenValue_ <= _availableCollateral_) {
                     // Decrement available collateral.

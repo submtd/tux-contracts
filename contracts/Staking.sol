@@ -277,7 +277,7 @@ contract Staking is BaseContract, ERC721 {
     {
         if(tokenId_ <= 0 || tokenId_ > _tokenIdTracker) revert STAKING_invalidTokenId();
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
-        if(_stakeType[tokenId_] != 1) revert STAKING_invalidTokenId();
+        if(_stakeType[tokenId_] != 1) return;
         uint256 _availableDividends_ = _availableDividends(tokenId_);
         if(_availableDividends_ <= 0) revert STAKING_noDividends();
         totalWcStaked += _availableDividends_;
@@ -292,7 +292,7 @@ contract Staking is BaseContract, ERC721 {
      */
     function claim(uint256 tokenId_) external runCron
     {
-        if(_stakeType[tokenId_] != 1 && _stakeType[tokenId_] != 2) revert STAKING_invalidTokenId();
+        if(_stakeType[tokenId_] != 1 && _stakeType[tokenId_] != 2) return;
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
         uint256 _availableDividends_ = _availableDividends(tokenId_);
         if(_availableDividends_ <= 0 && _tuxRefundAvailable[tokenId_] <= 0 && _rcRewardAvailable[tokenId_] <= 0) revert STAKING_noDividends();
@@ -300,10 +300,6 @@ contract Staking is BaseContract, ERC721 {
             _dividendDebt[tokenId_] += _availableDividends_;
             _dividendsClaimed[tokenId_] += _availableDividends_;
             if(!_tux.transfer(msg.sender, _availableDividends_)) revert STAKING_transferFailed();
-        }
-        if(_tuxRefundAvailable[tokenId_] > 0) {
-            _tuxRefundAvailable[tokenId_] = 0;
-            if(!_tux.transfer(msg.sender, _tuxRefundAvailable[tokenId_])) revert STAKING_transferFailed();
         }
         if(_rcRewardAvailable[tokenId_] > 0) {
             uint256 _stakeAmount_ = _stakeAmount[tokenId_];
@@ -324,7 +320,7 @@ contract Staking is BaseContract, ERC721 {
     {
         if(tokenId_ <= 0 || tokenId_ > _tokenIdTracker) revert STAKING_invalidTokenId();
         if(ownerOf(tokenId_) != msg.sender) revert STAKING_invalidTokenId();
-        if(_stakeType[tokenId_] != 1) revert STAKING_invalidTokenId();
+        if(_stakeType[tokenId_] != 1) return;
         uint256 _stakeAmount_ = _stakeAmount[tokenId_];
         _killToken(tokenId_);
         totalWcStaked -= _stakeAmount_;
@@ -383,13 +379,6 @@ contract Staking is BaseContract, ERC721 {
             if(_stakeType[i] == 1) {
                 // Calculate token value.
                 uint256 _tokenValue_ = _tokenUsdcValue(i);
-                //uint256 _tokenValue_ = _stakeAmount[i] * _stakePrice[i] * 2 / (10 ** _tuxDecimals);
-                // If value is greater than max RC reward, set value to max RC reward and calculate the TUX refund.
-                uint256 _tuxRefund_;
-                //if(_tokenValue_ > maxRcReward) {
-                    //_tokenValue_ = maxRcReward;
-                    //_tuxRefund_ = _stakeAmount[i] - (maxRcReward * (10 ** _tuxDecimals) / _stakePrice[i] / 2);
-                //}
                 // If there is enough collateral, update variables.
                 if(_tokenValue_ <= _availableCollateral_) {
                     // Decrement available collateral.
@@ -404,8 +393,6 @@ contract Staking is BaseContract, ERC721 {
                     _tux.transfer(deadAddress, _stakeAmount[i] * _burnPercent / 100);
                     // Update stake data.
                     totalWcStaked -= _stakeAmount[i];
-                    _tuxRefunds += _tuxRefund_;
-                    _tuxRefundAvailable[i] = _tuxRefund_;
                     _stakeType[i] = 2;
                     // Emit event.
                     emit RedCarpetEntered(i, _tokenValue_);
